@@ -86,7 +86,7 @@ const MIME_TYPE_MAP = {
     "image/jpg": "jpg",
 };
 
-let pathTillUploads = path.join(__dirname, '../uploads')
+let pathTillUploads = path.join(__dirname, '../../uploads')
 const storageControl = multer.diskStorage({
     destination: (req, file, callback) => {
         if (!fs.existsSync(`${pathTillUploads}/${file.fieldname}`)) {

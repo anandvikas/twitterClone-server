@@ -17,40 +17,50 @@ const schema = new mongoose.Schema({
         type: String,
         require: true
     },
+    profilePic: {
+        type: String,
+        default: 'profilePics/noAvatar.png'
+    },
     following: [
         {
-            userId: {
-                type: mongoose.Types.ObjectId,
-                required: true
-            }
-
+            type: mongoose.Types.ObjectId,
+            ref: 'User',
+            required: true
         }
     ],
     followers: [
         {
-            userId: {
-                type: mongoose.Types.ObjectId,
-                required: true
-            }
-
+            type: mongoose.Types.ObjectId,
+            ref: 'User',
+            required: true
         }
     ],
     loginTokens: [
         {
-            token: {
-                type: String,
-                required: true
-            }
+            type: String,
+            required: true
         }
     ],
-    resetPasswordToken:{
-        type:String
+    
+    resetPasswordToken: {
+        type: String
     },
+
     active: {
         type: Boolean,
         require: true,
         default: true
     },
+    // extras...
+    spokenLanguages:[
+        // eg. hindi, eng 
+    ],
+    interests:[
+        // eg. movies, sports, politics 
+    ],
+    sybInterests:[
+        // eg. action, football, modi ji 
+    ],
 
 
 },

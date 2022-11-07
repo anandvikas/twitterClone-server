@@ -9,6 +9,7 @@ const {
     generateOTP,
     emailSend
 } = require("../helper/helper");
+const { default: mongoose } = require("mongoose");
 
 exports.create = async (request, response) => {
     let { name, userName, email, password } = request.body;
@@ -78,13 +79,17 @@ exports.signIn = async (request, response) => {
         }
 
         token = await generateToken({
-            id: user._id,
+            userId: user._id,
             otp: generateOTP()
         })
 
-        await User.findByIdAndUpdate(user._id, {
-            $push: { loginTokens: { token } }
-        })
+
+
+        user = await User.findByIdAndUpdate(user._id, {
+            $push: { loginTokens: token }
+        }, {
+            new: true
+        }).select({ password: 0, loginTokens: 0, })
 
     } catch (err) {
         // console.log(err)
@@ -100,7 +105,8 @@ exports.signIn = async (request, response) => {
     response.status(200).json({
         status: "success",
         message: "User logged in successfully",
-        token
+        token,
+        user
     })
 }
 
@@ -109,7 +115,7 @@ exports.autoSignIn = async (request, response) => {
     let tokenData, user;
     try {
         tokenData = await decodeToken(token);
-        if (!tokenData || !tokenData.id) {
+        if (!tokenData || !tokenData.userId) {
             HttpErrorResponse({
                 response,
                 status: "error",
@@ -118,7 +124,10 @@ exports.autoSignIn = async (request, response) => {
             })
             return;
         }
-        user = await User.findOne({ _id: tokenData.id, 'loginTokens.token': { $in: [token] } });
+
+        user = await User
+            .findOne({ _id: tokenData.userId, loginTokens: { $in: [token] } })
+            .select({ password: 0, loginTokens: 0, });
         if (!user) {
             HttpErrorResponse({
                 response,
@@ -142,7 +151,8 @@ exports.autoSignIn = async (request, response) => {
     response.status(200).json({
         status: "success",
         message: "User logged in successfully",
-        token
+        token,
+        user
     })
 }
 
@@ -248,15 +258,10 @@ exports.resetPassword = async (request, response) => {
 }
 
 exports.getUser = async (request, response) => {
-    const { userName } = request.params;    
+    const { userName } = request.params;
     let user;
     try {
-        user = await User.findOne({ userName }).select(
-            {
-                userName: 1,
-                email: 1,
-            }
-        )
+        user = await User.findOne({ userName }).select({ password: 0, loginTokens: 0, })
         if (!user) {
             HttpErrorResponse({
                 response,
@@ -283,6 +288,88 @@ exports.getUser = async (request, response) => {
         user
     })
 }
+
+exports.updateUser = async (request, response) => {
+    const { userId, updates } = request.body
+    let user;
+    try {
+        user = await User.findByIdAndUpdate(userId, {
+            $set: updates
+        }, {
+            new: true
+        }).select({ password: 0, loginTokens: 0, })
+    } catch (err) {
+        // console.log(err)
+        HttpErrorResponse({
+            response,
+            status: "error",
+            code: 500,
+            message: "Cannot update the user",
+            data: err
+        })
+        return;
+    }
+    response.status(200).json({
+        status: "success",
+        message: "User updated successfully",
+        user
+    })
+}
+
+exports.followUser = async (request, response) => {
+    const { userId, userToBeFollowed } = request.body;
+    let user;
+    try {
+        user = await User.findByIdAndUpdate(userId, {
+            $addToSet: { following: userToBeFollowed }
+        }, {
+            new: true
+        }).select({ password: 0, loginTokens: 0, })
+    } catch (err) {
+        // console.log(err)
+        HttpErrorResponse({
+            response,
+            status: "error",
+            code: 500,
+            message: "Cannot follow the user",
+            data: err
+        })
+        return;
+    }
+    response.status(200).json({
+        status: "success",
+        message: "Followed successfully",
+        user
+    })
+}
+
+exports.unFollowUser = async (request, response) => {
+    const { userId, userToBeUnFollowed } = request.body;
+    let user;
+    try {
+        user = await User.findByIdAndUpdate(userId, {
+            $pull: { following: userToBeUnFollowed }
+        }, {
+            new: true
+        }).select({ password: 0, loginTokens: 0, })
+    } catch (err) {
+        console.log(err)
+        HttpErrorResponse({
+            response,
+            status: "error",
+            code: 500,
+            message: "Cannot un-follow the user",
+            data: err
+        })
+        return;
+    }
+    response.status(200).json({
+        status: "success",
+        message: "Un-followed successfully",
+        user
+    })
+}
+
 
 
 
