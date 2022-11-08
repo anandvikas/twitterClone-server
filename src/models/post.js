@@ -1,4 +1,16 @@
 const mongoose = require('mongoose')
+
+const quotedTweetSchema = new mongoose.Schema({
+   userId: {
+      type: mongoose.Types.ObjectId,
+      ref: 'User',
+      required: true
+   }
+}, {
+   timestamps: true
+}
+)
+
 const schema = new mongoose.Schema({
    userId: {
       type: mongoose.Types.ObjectId,
@@ -10,7 +22,7 @@ const schema = new mongoose.Schema({
       ref: 'Post',
       // required: true
    },
-   catagory: {
+   category: {
       type: String,
       enum: ['tweet', 'quotedTweet', 'reply'],
       required: true,
@@ -45,13 +57,21 @@ const schema = new mongoose.Schema({
    viewScope: {
       type: String,
       enum: ['public', 'twitterCircle'],
-      required: true,
+      // required: true,
       default: 'public'
    },
-   reTweetedBy: [
+   reTweetBy: [
       {
          type: mongoose.Types.ObjectId,
-         ref: 'User'
+         ref: 'User',
+         required: true
+      }
+   ],
+   quotedTweetBy: [
+      {
+         type: mongoose.Types.ObjectId,
+         ref: 'User',
+         required: true
       }
    ],
 
@@ -68,7 +88,7 @@ const schema = new mongoose.Schema({
       scope: {
          type: String,
          enum: ['public', 'followers', 'mentioned'],
-         required: true,
+         // required: true,
          default: 'public'
       },
       mentionedPeople: [

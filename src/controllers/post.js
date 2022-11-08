@@ -10,30 +10,54 @@ const {
     emailSend
 } = require("../helper/helper");
 
-const { default: mongoose } = require("mongoose");
 
-const postTweet = async (request, response) => {
-
-    // console.log(postPics)
-    // console.log(request.body)
-
+exports.createPost = async (request, response) => {
     const { postPics } = request.files
-    const {
-        userId,
-        // parentId,
-        catagory,
+    const { userId } = request
+    let {
+        parentId,
+        category,
         comment,
         mediaType,
         location,
         viewScope,
-        // reTweetedBy,
-        // likedBy,
         replyScope,
         mentionedPeople
-        // replies
-    } = request.body
+    } = request.body;
 
+    //--------------------------------------
+    if (category !== 'tweet') {
+        try {
+            let isParentExists = await Post.findOne({ _id: parentId })
+            if (!isParentExists) {
+                HttpErrorResponse({
+                    response,
+                    status: "error",
+                    code: 400,
+                    message: "Unable to post #1",
+                })
+                return;
+            }
+        } catch (error) {
+            console.log(err)
+            HttpErrorResponse({
+                response,
+                status: "error",
+                code: 500,
+                message: "Unable to post #2",
+                data: err
+            })
+            return;
+        }
+    }
+
+    //---------------------------------------
+    let post;
     let addOns = {}
+
+    if (category === 'reply' || category === 'quotedTweet') {
+        addOns.parentId = parentId;
+    }
 
     if (postPics && postPics.length) {
         addOns.media = postPics.map((pic) => {
@@ -44,74 +68,194 @@ const postTweet = async (request, response) => {
         })
     }
 
-    addOns.replyScope = {
-        scope: replyScope,
+    if (replyScope) {
+        addOns.replyScope = {
+            scope: replyScope,
+        }
+        if (replyScope === 'mentioned' && mentionedPeople) {
+            mentionedPeople = JSON.parse(mentionedPeople)
+            addOns.replyScope.mentionedPeople = mentionedPeople
+        }
     }
 
-    if (replyScope === 'mentioned') {
-        addOns.replyScope.mentionedPeople = mentionedPeople
-    }
+    //-------------------------------------------
 
     try {
         const newPost = new Post(
             {
                 userId,
-                catagory,
+                category,
                 comment,
-                mediaType,
                 location,
                 viewScope,
                 ...addOns
             }
         )
-        await newPost.save()
+        post = await newPost.save()
     } catch (err) {
-        // console.log(err)
+        console.log(err)
         HttpErrorResponse({
             response,
             status: "error",
             code: 500,
-            message: "Cannot create the Post",
+            message: "Unable to post #3",
             data: err
         })
         return;
     }
+
+    //---------------------------------------
+
+    if (category === 'reply') {
+        try {
+            await Post.findByIdAndUpdate(parentId, {
+                $push: { replies: post._id }
+            })
+        } catch (err) {
+            console.log(err)
+            HttpErrorResponse({
+                response,
+                status: "error",
+                code: 500,
+                message: "Unable to post #4",
+                data: err
+            })
+            return;
+        }
+    }
+
+    if (category === 'quotedTweet') {
+        try {
+            await Post.findByIdAndUpdate(parentId, {
+                $push: { quotedTweetBy: userId }
+            })
+        } catch (err) {
+            console.log(err)
+            HttpErrorResponse({
+                response,
+                status: "error",
+                code: 500,
+                message: "Unable to post #4",
+                data: err
+            })
+            return;
+        }
+    }
+
+    //---------------------------------------
+
     response.status(200).json({
         status: "success",
         message: "Post has been created successfully"
     })
 }
 
-const postQuotedTweet = async (request, response) => {
-
-}
-
-const postReply = async (request, response) => {
-
-}
-
-exports.postGuide = async (request, response) => {
-
-    const { catagory } = request.body;
-
-    if (catagory === 'tweet') {
-        postTweet(request, response)
-        return
+exports.reTweet = async (request, response) => {
+    const { userId } = request;
+    const { parentId, action } = request.body
+    try {
+        if (action === 'add') {
+            await Post.findByIdAndUpdate(parentId, {
+                $addToSet: { reTweetBy: userId }
+            })
+        } else if (action === 'remove') {
+            await Post.findByIdAndUpdate(parentId, {
+                $pull: { reTweetBy: userId }
+            })
+        } else {
+            HttpErrorResponse({
+                response,
+                status: "error",
+                code: 400,
+                message: "Action not supported #1",
+            })
+            return;
+        }
+    } catch (err) {
+        console.log(err)
+        HttpErrorResponse({
+            response,
+            status: "error",
+            code: 500,
+            message: "Unable to perform the action #1",
+            data: err
+        })
+        return;
     }
-    if (catagory === 'quotedTweet') {
-        postQuotedTweet(request, response)
-        return
-    }
-    if (catagory === 'reply') {
-        postReply(request, response)
-        return
-    }
-
-    HttpErrorResponse({
-        response,
-        status: "error",
-        code: 400,
-        message: "Cannot post",
+    response.status(200).json({
+        status: "success",
+        message: "Action performed successfully"
     })
-    return;
+}
+
+exports.likePost = async (request, response) => {
+    const { userId } = request;
+    const { parentId, action } = request.body;
+
+    try {
+        if (action === 'like') {
+            await Post.findByIdAndUpdate(parentId, {
+                $addToSet: { likedBy: userId }
+            })
+        } else if (action === 'unlike') {
+            await Post.findByIdAndUpdate(parentId, {
+                $pull: { likedBy: userId }
+            })
+        } else {
+            HttpErrorResponse({
+                response,
+                status: "error",
+                code: 400,
+                message: "Action not supported #1",
+            })
+            return;
+        }
+    } catch (err) {
+        console.log(err)
+        HttpErrorResponse({
+            response,
+            status: "error",
+            code: 500,
+            message: "Unable to perform the action #1",
+            data: err
+        })
+        return;
+    }
+    response.status(200).json({
+        status: "success",
+        message: "Action performed successfully"
+    })
+}
+
+exports.deletePost = async (request, response) => {
+    const { userId } = request;
+    const { postId } = request.body;
+
+
+    try {
+        let delRes = await Post.deleteOne({ _id: postId, userId })
+        if (!delRes?.deletedCount) {
+            HttpErrorResponse({
+                response,
+                status: "error",
+                code: 400,
+                message: "Unable to delete #1",
+            })
+            return;
+        }
+    } catch (err) {
+        console.log(err)
+        HttpErrorResponse({
+            response,
+            status: "error",
+            code: 500,
+            message: "Unable to delete #2",
+            data: err
+        })
+        return;
+    }
+    response.status(200).json({
+        status: "success",
+        message: "Deleted successfully"
+    })
 }

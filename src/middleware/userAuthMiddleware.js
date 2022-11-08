@@ -41,7 +41,8 @@ userAuthMiddleware = async (request, response, next) => {
             })
             return;
         }
-        request.body.userId = tokenData.userId
+        request.body.userId = tokenData.userId;
+        request.userId = tokenData.userId
     } catch (err) {
         HttpErrorResponse({
             response,
@@ -52,6 +53,7 @@ userAuthMiddleware = async (request, response, next) => {
         })
         return;
     }
+    
     next()
 }
 module.exports = userAuthMiddleware

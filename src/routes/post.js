@@ -10,7 +10,22 @@ const userAuthMiddleware = require('../middleware/userAuthMiddleware')
 router.post('/',
     userAuthMiddleware,
     upload.fields([{ name: "postPics", maxCount: 10 },]),
-    controllers.postGuide
+    controllers.createPost
+);
+
+router.post('/reTweet',
+    userAuthMiddleware,
+    controllers.reTweet
+);
+
+router.post('/like',
+    userAuthMiddleware,
+    controllers.likePost
+);
+
+router.delete('/',
+    userAuthMiddleware,
+    controllers.deletePost
 );
 
 module.exports = router;
